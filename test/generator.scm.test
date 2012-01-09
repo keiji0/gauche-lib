@@ -1,0 +1,63 @@
+;; -*- mode: scheme -*-
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use file.util)
+
+(test-start "mw.generator")
+
+(use mw.generator)
+
+(test-module 'mw.generator)
+
+;; Util
+
+(define-constant *tmp-directory* "generator.tmp")
+
+(define (make-tmp) (make-directory* *tmp-directory*))
+(define (clean-tmp) (delete-directory* *tmp-directory*))
+
+(define generate$ (cut generate <> *tmp-directory*))
+(define build-path$ (pa$ build-path *tmp-directory*))
+
+(test-section "session 1")
+(make-tmp)
+
+;; ファイルが作られ、パーミッションが指定どうりに設定されているか？
+(begin
+  (generate$ '(hoge (@ :mode #o600) "HOGE"))
+  (test* "make file exists?" #t
+         (file-is-regular? (build-path$ "hoge")))
+  (test* "make file mode?" #o600
+         (logand (file-mode (build-path$ "hoge")) #o000777))
+  (test* "make file content?" "HOGE"
+         (file->string (build-path$ "hoge"))))
+
+;; ファイルが存在し`override'が#tであった場合、上書きしているか？
+(begin
+  (generate$ '(hoge (@ :override #t) "hoge"))
+  (test* "override file!" "hoge"
+         (file->string (build-path$ "hoge"))))
+
+;; ディレクトリが作られ、パーミッションが指定どうりに設定されているか？
+(begin
+  (generate$ '(bar/ (@ :mode #o600)))
+  (test* "make directory exists?" #t
+         (file-is-directory? (build-path$ "bar")))
+  (test* "make directory mode?" #o600
+         (logand (file-mode (build-path$ "bar")) #o000777)))
+
+(clean-tmp)
+(test-section "session 2")
+(make-tmp)
+
+;; ファイルを持ったディレクトリが再帰的にファイルを生成しているか？
+(begin
+  (generate$ '(bar/ (hoge) (jojo)))
+  (test* "recursion directory" #t
+         (and (file-is-directory? (build-path$ "bar"))
+              (file-is-regular? (build-path$ "bar" "hoge"))
+              (file-is-regular? (build-path$ "bar" "jojo")))))
+
+(clean-tmp)
+(test-end)

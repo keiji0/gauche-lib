@@ -1,0 +1,123 @@
+;; -*- mode: scheme -*-
+;; $Id: persistent.test.scm,v 1.1.1.1 2005/09/14 10:33:24 keiji Exp $
+
+(use gauche.test)
+(use mw.persistent)
+(use file.util)
+(use dbm.fsdbm)
+
+(test-start "mw.persistent")
+
+(use mw.persistent)
+(use file.util)
+
+(test-module 'mw.persistent)
+
+(define *db-path* "object.db.tmp")
+(define (db-clean) (delete-directory* *db-path*))
+
+(define-syntax %with-db
+  (syntax-rules ()
+    ((_ body ...) (with-db (<fsdbm> *db-path*) body ...))))
+
+(define-class <user> (<persistent-base>)
+  ((name :allocation :persistent :init-keyword :name :init-value "")
+   (level :allocation :persistent :init-keyword :level :init-value 0)
+   (friend :allocation :persistent :init-keyword :friend :init-value #f)))
+
+(define (make-user name . args)
+  (apply make <user> :key name :name name args))
+
+(define find-user (pa$ find-instance <user>))
+
+;; データベースが作成されているか？
+(test* "creating database" #t
+       (%with-db
+         (file-exists? *db-path*)))
+
+;; オブジェクトがデータベースに登録されているか？
+(test* "creating & persistent" "hoge"
+       (begin
+         (%with-db
+           (make-user "hoge"))
+         (%with-db
+           (ref (find-instance <user> "hoge") 'name))))
+
+;; オブジェクトを変更すると、データベースに反映されているか？
+(test* "change instance" 99
+       (begin
+         (%with-db
+           (slot-set! (find-instance <user> "hoge") 'level 99))
+         (%with-db
+           (ref (find-instance <user> "hoge") 'level))))
+
+;; スロットに格納された永続オブジェクトは、復元されているか？
+(test* "serialize <persistent>" #t
+       (begin
+         (%with-db
+           (let1 hoge (find-instance <user> "hoge")
+             (set! (ref hoge 'friend)
+                   (make-user "bar"))))
+         (%with-db
+          (equal? "bar"
+                  (ref (ref (find-instance <user> "hoge") 'friend)
+                       'name)))))
+
+;; ハッシュテーブルが永続化されているか？
+(test* "serialize <hash-table>" #t
+       (begin
+         (%with-db
+          (let ((taro (make-user "taro"))
+                (ht (hash-table 'eq? '(a . 8) '(b . 9))))
+            (slot-set! taro 'friend ht)))
+         (%with-db
+          (let1 ht (ref (find-user "taro") 'friend)
+            (equal? '((a . 8) (b . 9))
+                    (list (cons 'a (hash-table-get ht 'a))
+                          (cons 'b (hash-table-get ht 'b))))))))
+
+;; オブジェクトコレクションが動作しているか？
+(use gauche.collection)
+(test* "Collection" '("taro" "bar" "hoge")
+       (%with-db
+        (map (cut ref <> 'name) (make-collection <user>))
+        ))
+
+;; トランザクションが機能しているか？
+(test* "Transaction 1" 99
+       (%with-db
+        (let ((hoge (find-user "hoge")))
+          (with-error-handler
+            (lambda (e)
+              (ref hoge 'level))
+            (lambda ()
+              (with-transaction
+                (slot-set! hoge 'level 100)
+                (error #t)))))))
+
+;; トランザクション内で作られたオブジェクトのキャッシュが掃除されているか？
+(test* "Transaction 2" #f
+       (%with-db
+        (with-error-handler
+          (lambda (e)
+            (find-user "tran"))
+          (lambda ()
+            (with-transaction
+              (make-user "tran")
+              (error #t))))))
+
+;; オブジェクトを削除されているか？
+(test* "Delete" #f
+       (begin
+         (%with-db
+          (delete-instance! (make-user "hoge")))
+         (%with-db
+          (find-user "hoge"))))
+
+;; オブジェクトが削除されるとオブジェクト集合からも削除されているか?
+(test* "Delete" #f
+       (%with-db
+        (member "hoge" (ref (make-collection <user>) 'instances))))
+
+(db-clean)
+(test-end)

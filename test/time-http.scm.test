@@ -1,0 +1,17 @@
+;; -*- mode: scheme -*-
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use srfi-19)
+
+(test-start "mw.time.http")
+
+(use mw.time.http)
+
+(test-module 'mw.time.http)
+
+(test* "time->http-date"
+       "Tue, 11 Oct 2005 09:52:12 GMT"
+       (time->http-date 1129024332))
+
+(test-end)

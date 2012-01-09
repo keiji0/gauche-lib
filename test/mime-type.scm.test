@@ -1,0 +1,28 @@
+;; -*- mode: scheme -*-
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+
+(test-start "mw.mime-type")
+
+(use mw.mime-type)
+
+(test-module 'mw.mime-type)
+
+;; デフォルトのMIME-TYPEが追加されているか？
+(test* "get-mime-type" '("text/html" "application/pdf")
+       (list (get-mime-type "html")
+             (get-mime-type "pdf")))
+
+;; ファイル名からMIME-TYPEを得れるか？
+(test* "file-mime-type" "application/rdf+xml"
+       (file-mime-type "hoge.rdf"))
+
+;; MIME-TYPEを追加出来るか？
+(test* "add-mime-type!" '("application/hoge" "application/hoge")
+       (begin
+         (add-mime-type! "application/hoge" "hoge" "jojo")
+         (list (get-mime-type "hoge")
+               (get-mime-type "jojo"))))
+
+(test-end)

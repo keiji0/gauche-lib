@@ -1,0 +1,38 @@
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use rfc.http)
+(use file.util)
+(use mw.test.server)
+(use mw.server)
+(use mw.server.httpd)
+
+(test-start "mw.servelet.fs")
+
+(use mw.servelet.fs)
+
+(test-module 'mw.servelet.fs)
+
+(define http-server (make-http-server 8080 (make-fs-servelet "fs-dir")))
+
+(test* "GET /hoge.text" #t
+       (run-server-with-client (http-server)
+         (receive (s h b) (http-get "localhost:8080" "/hoge.text")
+           (string=? b (file->string "fs-dir/hoge.text")))))
+
+(test* "GET /" #t
+       (run-server-with-client (http-server)
+         (receive (s h b) (http-get "localhost:8080" "/")
+           (string=? b (file->string "fs-dir/index.html")))))
+
+(test* "Not found" "404"
+       (run-server-with-client (http-server)
+         (receive (s h b) (http-get "localhost:8080" "/ks382jsl")
+           s)))
+
+(test* "Forbidden" "403"
+       (run-server-with-client (http-server)
+         (receive (s h b) (http-get "localhost:8080" "/../../server.scm")
+           s)))
+
+(test-end)

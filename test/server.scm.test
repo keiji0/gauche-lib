@@ -1,0 +1,46 @@
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use gauche.selector)
+(use gauche.net)
+(use mw.test.server)
+
+(test-start "mw.server")
+
+(use mw.server)
+
+(test-module 'mw.server)
+
+(define-constant *echo-port* 12345)
+(define-constant *echo-host* "localhost")
+
+(define echo2-server
+  (make <server>
+   :socket (make-server-socket 'inet *echo-port*)
+   :handler
+   (lambda (client selector)
+     (let ((in (socket-input-port client))
+           (out (socket-output-port client)))
+       (selector-add! selector
+                      in
+                      (lambda _
+                        (let ((l (read-line in)))
+                          (if (eof-object? l)
+                              (begin
+                                (selector-delete! selector in #f #f)
+                                (socket-close client))
+                              (begin
+                                (format out "~ax~a" l l) (newline out)
+                                (flush out)))))
+                      '(r))))))
+
+(define (echo2-client str)
+  (call-with-client-socket (make-client-socket 'inet *echo-host* *echo-port*)
+    (lambda (in out)
+      (display str out) (newline out) (flush out)
+      (read-line in))))
+
+(run-server-with-client (echo2-server)
+ (test* "run-server" "2x2" (echo2-client "2")))
+
+(test-end)

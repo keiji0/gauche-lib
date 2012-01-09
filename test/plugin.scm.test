@@ -1,0 +1,18 @@
+;; -*- mode: scheme -*-
+;; $Id: plugin.test.scm,v 1.1.1.1 2005/09/14 10:33:24 keiji Exp $
+
+(use gauche.test)
+
+(test-start "mw.plugin")
+
+(use mw.plugin)
+
+(test-module 'mw.plugin)
+
+(initialize-plugins "%plugin")
+(import-plugin hoge bar)
+
+(test* "initialize-plugins" '(8)
+       (bar 8))
+
+(test-end)

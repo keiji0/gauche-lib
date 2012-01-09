@@ -1,0 +1,18 @@
+;; -*- mode: scheme -*-
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use sxml.ssax)
+(use mw.interp)
+
+(test-start "mw.interp.json")
+
+(use mw.interp.json)
+
+(test-module 'mw.interp.json)
+
+(test* "sexp->json"
+       "{\"bar\":8,\"hoge\":[\"a\",\"b\"]}"
+       (sexp->json '((bar . 8) (hoge . #("a" "b")))))
+
+(test-end)

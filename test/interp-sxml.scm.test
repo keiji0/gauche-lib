@@ -1,0 +1,48 @@
+;; -*- mode: scheme -*-
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use text.tree)
+(use sxml.ssax)
+(use mw.interp)
+
+(test-start "mw.interp.sxml")
+
+(use mw.interp.sxml)
+
+(test-module 'mw.interp.sxml)
+
+(define (tree->xml->sxml tree)
+  (caddr
+    (call-with-input-string (tree->string tree)
+      (cut ssax:xml->sxml <> '()))))
+
+;; 正常に展開されているか？
+(test* "sxml->xml"
+       "<a hoge='bar -&gt;'>&lt;- abc</a>"
+       (tree->string (sxml->xml '(a (@ (hoge "bar ->")) "<- abc"))))
+
+;; 汎用XMLは展開されているか?
+(test* "interp-sxml" '(jojo (ORA "MUDAMUDAMUDA!"))
+       (receive (_ x)
+           (interp-generic '(xml (jojo (ORA "MUDAMUDAMUDA!"))))
+         (tree->xml->sxml x)))
+
+;; SXMLのインタプリタの動作確認
+(add-interp! 'hoge (make-interp-sxml :top-node 'hoge))
+(test* "make-interp-sxml"
+       '(hoge "ab" (a (@ (hoge "bar ->")) "abc ->"))
+       (receive (_ x)
+           (interp-generic
+            '(hoge "ab" (a (@ (hoge "bar ->")) "abc ->")))
+         (tree->xml->sxml x)))
+
+;; トップレベルに属性が適用されているか？
+(test* "top-level attribute"
+       '(hoge (@ (aaa "aaa")))
+       (receive (_ x)
+           (interp-generic
+            '(hoge (@ (aaa "aaa"))))
+         (tree->xml->sxml x)))
+
+(test-end)

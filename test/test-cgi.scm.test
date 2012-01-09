@@ -1,0 +1,35 @@
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use mw.servelet.cgi)
+
+(test-start "mw.test.cgi")
+
+(use mw.test.cgi)
+
+(test-module 'mw.test.cgi)
+
+(define-cgi-script test.cgi
+  (use www.cgi)
+  (define (main args)
+    (display (cgi-get-metavariable "hoge"))))
+
+(test* "define-cgi-script" #t
+       (is-a? test.cgi <module>))
+
+(test* "call-with-cgi-script 1" "JOJO"
+       (call-with-cgi-script test.cgi port->string
+         :environment '(("hoge" . "JOJO"))))
+
+(define-cgi-script test.cgi
+  (use www.cgi)
+  (define (main args)
+    (cgi-main
+     (lambda (params)
+       `(,(cgi-header) "abc")))))
+
+(test* "call-with-cgi-script 2" "abc"
+       (receive (h b) (run-cgi-script->header&body test.cgi port->string)
+         b))
+
+(test-end)

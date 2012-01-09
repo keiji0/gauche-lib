@@ -1,0 +1,52 @@
+;; -*- mode: scheme -*-
+;; $Id: config.test.scm,v 1.1.1.1 2005/09/14 10:33:24 keiji Exp $
+
+(use gauche.test)
+(test-start "mw.config")
+(use mw.config)
+
+(test-module 'mw.config)
+
+(define-config hoge)
+
+(test* "define-config 1" 'x
+       (begin (config-set! 'hoge 'x)
+              (config-ref 'hoge)))
+
+(test* "define-config 2" "abc"
+       (config-ref 'kskssk "abc"))
+
+(define-config jojo x->number)
+
+(test* "define-config (validator)" 888
+       (begin (config-set! 'jojo "888")
+              (config-ref 'jojo)))
+
+;; 設定を初期化
+(initialize-config! '((jojo . 20)))
+;; 初期化されているか？
+(test* "initialize-config! 1" #f (config-ref 'hoge #f))
+;; 初期化と同時に値が更新されているか
+(test* "initialize-config! 2" 20 (config-ref 'jojo))
+
+;; 設定ファイルを作成
+(with-output-to-file "config.tmp"
+  (lambda ()
+    (write '(config-set! 'hoge "jojo"))
+    (write '(config-set! 'jojo "hoge"))))
+;; 設定ファイルを読み込む
+(define-config jojo)
+(initialize-config! "./config.tmp")
+(test* "initialize-config! 3" '("jojo" "hoge")
+       (list (config-ref 'hoge)
+             (config-ref 'jojo)))
+
+(sys-unlink "config.tmp")
+
+;; 一時設定環境を参照
+(test* "with-config" '(8 "jojo")
+       (list (with-config `((hoge . 8))
+               (config-ref 'hoge))
+             (config-ref 'hoge)))
+
+(test-end)

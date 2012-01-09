@@ -1,0 +1,109 @@
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use rfc.http)
+(use mw.config)
+(use mw.server)
+(use mw.test.server)
+
+(test-start "mw.httpd")
+
+(use mw.server.httpd)
+
+(test-module 'mw.server.httpd)
+
+(with-module mw.server.httpd
+  (use gauche.test)
+
+  (test-section "parse-request-line")
+  
+  (test* "parse-request-line"
+         '("GET" "/hoge" "HTTP/1.0")
+         (receive (method request-uri http-version)
+             (parse-request-line "GET /hoge HTTP/1.0")
+           (list method request-uri http-version)))
+
+  (test* "parse-request-line"
+         '("GET" "/hoge" "HTTP/1.1")
+         (receive (method request-uri http-version)
+             (parse-request-line "GET /hoge HTTP/1.1")
+           (list method request-uri http-version)))
+
+  (test* "parse-request-line error HTTP/1.2?" #t
+         (with-error-handler
+             (lambda (e) #t)
+             (lambda ()
+               (receive (method request-uri http-version)
+                   (parse-request-line "GET /hoge HTTP/1.2")
+                 (list method request-uri http-version)))))
+
+  (test-section "parse-request-uri")
+
+  (test* "parse-request-uri /bar/hoge?jojo"
+         '("bar" "/hoge" "jojo")
+         (receive (servelet path query)
+             (parse-request-uri "/bar/hoge?jojo")
+           (list servelet path query)))
+
+  (test* "parse-request-uri /bar"
+         '("bar" #f #f)
+         (receive (servelet path query)
+             (parse-request-uri "/bar")
+           (list servelet path query)))
+
+  (test* "parse-request-uri /bar?jojo"
+         '("bar" #f "jojo")
+         (receive (servelet path query)
+             (parse-request-uri "/bar?jojo")
+           (list servelet path query)))
+
+  (test* "parse-request-uri /"
+         '("" #f #f)
+         (receive (servelet path query)
+             (parse-request-uri "/")
+           (list servelet path query)))
+
+  (test* "parse-request-uri /?ABC"
+         '("" #f "ABC")
+         (receive (servelet path query)
+             (parse-request-uri "/?ABC")
+           (list servelet path query)))
+  )
+
+(test-section "http-metavariables")
+
+(test* "http-metavariables" '() (http-metavariables))
+
+(use gauche.parameter)
+(parameterize ((http-metavariables '()))
+  (test* "http-metavariable-set! & ref" "ORAORA!!!"
+         (begin
+           (http-metavariable-set! "JOJO" "ORAORA!!!")
+           (http-metavariable-ref  "JOJO")))
+
+  (test* "http-metavariable-ref" #f
+         (begin
+           (http-metavariable-ref  "DIO"))))
+
+(test-section "httpd")
+
+(define http-server
+  (make-http-server 8080
+   (lambda ()
+     (http-response '() "hoge"))))
+
+(test* "default servelet" "hoge"
+       (run-server-with-client (http-server)
+         (receive (s h b) (http-get "localhost:8080" "/abc")
+           b)))
+
+(add-servelet! http-server "jojo"
+               (lambda ()
+                 (http-response '() "ORAORA!!!")))
+
+(test* "servelet jojo" "ORAORA!!!"
+       (run-server-with-client (http-server)
+         (receive (s h b) (http-get "localhost:8080" "/jojo")
+           b)))
+
+(test-end)

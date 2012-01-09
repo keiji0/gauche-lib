@@ -1,0 +1,92 @@
+;; -*- mode: scheme -*-
+;; $Id: textlight.test.scm,v 1.1.1.1 2005/09/14 10:33:24 keiji Exp $
+
+(use util.match)
+(use gauche.test)
+
+(test-start "mw.textlight")
+
+(use mw.textlight)
+
+(test-module 'mw.textlight)
+
+(test* "read h2" '(h2 "Headline")
+       (match (call-with-input-string "= Headline\n" read-textlight-block)
+         ((h _ x)
+          (list h x))))
+
+(test* "read h3" '(h3 "Headline")
+       (match (call-with-input-string "== Headline\n" read-textlight-block)
+         ((h _ x)
+          (list h x))))
+
+(test* "read h6" '(h6 "Headline")
+       (match (call-with-input-string "===== Headline\n" read-textlight-block)
+         ((h _ x)
+          (list h x))))
+
+(test* "read List" '(ol (li "hoge")
+                        (li
+                         (ol (li "hoge")
+                             (li "jojo")))
+                        (li "bar")
+                        (li
+                         (ul (li "bar")
+                             (li "jojo"))))
+       (call-with-input-string "
++ hoge
+ + hoge
+ + jojo
++ bar
+ * bar
+ * jojo
+" read-textlight-block))
+
+(test* "read Paragraph" '(p "hoge" "hoge")
+       (call-with-input-string "hoge\nhoge\n" read-textlight-block))
+
+(test* "read Preformatted" '(pre " hoge" "\n" " hoge")
+       (call-with-input-string " hoge\n hoge\n" read-textlight-block))
+
+(test* "skip comment line" '(p "hoge" "hoge")
+       (call-with-input-string "hoge
+;hoge
+hoge
+;hoge" read-textlight-block))
+
+(test* "read Macro [table]"
+       '(table (tr (td "hoge") (td "bar"))
+               (tr (td "bar") (td "hoge")))
+       (call-with-input-string "[table]
+  hoge | bar
+  bar  | hoge
+" read-textlight-block))
+
+(test* "read Macro [table] th"
+       '(table (tr (th "hoge") (th "bar"))
+               (tr (td "bar") (td "hoge")))
+       (call-with-input-string "[table]
+= hoge | bar
+  bar  | hoge
+" read-textlight-block))
+
+(test* "read Macro [table caption]"
+       '(table (caption "jojo")
+               (tr (td "hoge") (td "bar"))
+               (tr (td "bar") (td "hoge")))
+       (call-with-input-string "[table jojo]
+hoge | bar
+bar  | hoge
+" read-textlight-block))
+
+(test* "read Macro [dl]"
+       '(dl (dt "hoge") (dd "bar")
+            (dt "bar")  (dd "hoge")
+            (dt "huga") (dd "test jojo abc defg"))
+       (call-with-input-string "
+:hoge bar
+:bar hoge
+:huga test jojo abc defg
+" read-textlight-block))
+
+(test-end)

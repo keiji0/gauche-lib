@@ -1,0 +1,34 @@
+;; -*- mode: scheme -*-
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use srfi-13)
+(use gauche.test)
+(use gauche.net)
+(use mw.server)
+(use mw.test.server)
+(use mw.client.repl)
+
+(test-start "mw.server.repl")
+
+(use mw.server.repl)
+
+(test-module 'mw.server.repl)
+
+(define repl-path "repl-sock.tmp")
+
+(define repl-server (make-repl-server repl-path))
+
+(run-server-with-client (repl-server)
+                        
+ (let ((client (make-client-socket 'unix repl-path)))
+   
+   (test* "repl-eval" "((8 . 8) 20)"
+          (repl-eval '(list (cons 8 8) 20) client))
+   
+   (test* "repl-eval (error)" "*** ERROR: 8"
+          (repl-eval '(error 8) client)
+          string-prefix?)
+
+   ))
+
+(test-end)

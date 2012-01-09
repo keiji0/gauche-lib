@@ -1,0 +1,16 @@
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+
+(test-start "mw.interp")
+
+(use mw.interp)
+
+(test-module 'mw.interp)
+
+(define-interp (x y) (list y y y))
+
+(test* "interp-generic" '(2 2 2)
+       (interp-generic '(x 2)))
+
+(test-end)

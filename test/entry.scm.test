@@ -1,0 +1,187 @@
+;; $Id: cgi.test.scm,v 1.3 2005/09/16 06:20:22 keiji Exp $
+
+(use gauche.test)
+(use util.match)
+(use mw.test.cgi)
+(use mw.test.server)
+
+(test-start "mw.entry")
+
+(use mw.entry)
+
+(test-module 'mw.entry)
+
+(define-cgi-script test.cgi
+  
+  (use mw.entry)
+  (use mw.view)
+  (use mw.util)
+
+  (define (main args) (entry-main))
+  
+  )
+
+(test-section "entry util")
+
+(test* "path-info->list" '("hoge" "bar")
+       (path-info->list "/hoge/bar"))
+
+(test* "path-info->list" '("hoge")
+       (path-info->list "/hoge/"))
+
+(test* "path-info->list" '("_")
+       (path-info->list "/"))
+
+(test* "path-info->list" '("_")
+       (path-info->list ""))
+
+(define-syntax with-test-cgi
+  (syntax-rules ()
+    ((_ body ...)
+     (eval (begin body ...) test.cgi))))
+
+(define (keywords->alist keywords)
+  (match keywords
+    (() '())
+    ((key val . rest)
+     (cons (cons (keyword->string key) val)
+           (keywords->alist rest)))))
+
+(define-syntax request
+  (syntax-rules (?)
+    ((_ method path expr)
+     (request method path ? () expr))
+    ((_ method path ? parameters expr)
+     (call-with-values
+         (lambda ()
+           (run-cgi-script->header&body test.cgi port->string
+             :environment '(("PATH_INFO" . path)
+                            ("REQUEST_METHOD" . method))
+             :parameters (keywords->alist 'parameters)))
+       expr))))
+
+(test-section "entry-main")
+
+;; エントリに指定したコントローラーが起動しているか?
+(with-test-cgi
+ (define-entry GET (hello x) x))
+
+(test* "define-entry" "world!"
+       (request GET "/hello/world!"
+                (lambda (head body)
+                  body)))
+
+;; メソッドを指定なしだとGETに設定されているか?
+(with-test-cgi
+ (define-entry (hello) "hello"))
+
+(test* "define-entry" "hello"
+       (request GET "/hello"
+                (lambda (head body)
+                  body)))
+
+(with-test-cgi
+ (define-entry POST (hello x) (string-append x "-" x)))
+
+(test* "define-entry" "ABCDEFG-ABCDEFG"
+       (request POST "/hello/ABCDEFG"
+                (lambda (head body)
+                  body)))
+
+(with-test-cgi
+ (define-entry (call) ? (x y)
+   (number->string (+ (string->number x)
+                      (string->number y)))))
+
+(test* "define-entry" "555"
+       (request GET "/call" ? (:x 500 :y 55)
+                (lambda (head body) body)))
+
+;; 知らない`QUERY_STRING'を受け取ると`#f'を返す
+(with-test-cgi
+ (define-entry (query-string2) ? (x) (x->string x)))
+
+(test* "define-entry" "#f"
+       (request GET "/query-string2" (lambda (_ b) b)))
+
+;; 全てのQUERYパラメータを受け取れるか?
+(with-test-cgi
+ (define-entry (query-string3) ? x (x->string x)))
+
+(test* "define-entry" "((hoge bar))"
+       (request GET "/query-string3" ? (:hoge "bar")
+                (lambda (_ b) b)))
+
+;; 複数のエントリが追加されているか
+(with-test-cgi
+ (define-entry ((hoge bar) = entry-name)
+   (x->string entry-name)))
+
+(test* "define-entry" "hoge"
+       (request GET "/hoge" (lambda (_ x) x)))
+
+(test* "define-entry" "bar"
+       (request GET "/bar" (lambda (_ x) x)))
+
+;; レスポンスヘッダーがセットされているか？
+(with-test-cgi
+ (define-entry (header) ? (x)
+   (set! (http-header 'hoge) x)))
+
+(test* "response header" "jojo"
+       (request GET "/header" ? (:x "jojo")
+                (lambda (h _)
+                  (cadr (assoc "hoge" h)))))
+
+;; `view'が適用されているか?
+(with-test-cgi
+ (use mw.view)
+ (define-entry (view) ? (x) (view x))
+ (define-viewer (view x) #`",|x|,|x|"))
+
+(test* "view" "jojo"
+       (request GET "/view" ? (:x "jo")
+                (lambda (_ x) x)))
+
+;; エラー処理が動作しているか？
+(with-test-cgi
+ (define-entry (error)
+   (number->string (+ 'one 'two))))
+
+(test* "error handler" "500 Internal Server Error"
+       (request GET "/error"
+                (lambda (head body)
+                  (cadr (assoc "status" head)))))
+
+;; クライアントレベルのエラー処理が出来ているか?
+(with-test-cgi
+ (define-entry (error-client)
+   (entry-error "999 Test error")))
+
+(test* "error handler" "999 Test error"
+       (request GET "/error-client"
+                (lambda (head body)
+                  (cadr (assoc "status" head)))))
+
+;; `error-view'が適用されているか?
+(with-test-cgi
+ (define-entry (error-view)
+   (* 'MUDA! 'MUDA!))
+ (define-viewer (error e)
+   "ORA!"))
+
+(test* "error-view" "ORA!"
+       (request GET "/test"
+                (lambda (head body)
+                  body)))
+
+;; <pair>と<string>以外のオブジェクトを処理しているか?
+(with-test-cgi
+ (define-entry (hoge) (values)))
+
+(test* "return #<undef>" '("200 OK" . "")
+       (request GET "/hoge"
+                (lambda (head body)
+                  (cons (cadr (assoc "status" head)) body))))
+
+(test-end)

@@ -1,0 +1,134 @@
+;; -*- mode: scheme -*-
+;; $Id: set.test.scm,v 1.1.1.1 2005/09/14 10:33:24 keiji Exp $
+
+(use gauche.test)
+(use srfi-1)
+(use util.list)
+(use gauche.collection)
+(use mw.persistent)
+(use dbm.fsdbm)
+(use file.util)
+
+(define *db-path* "object.db.tmp")
+(define (db-clean) (delete-directory* *db-path*))
+
+(define-syntax %with-db
+  (syntax-rules ()
+    ((_ body ...) (with-db (<fsdbm> *db-path*) body ...))))
+
+(test-start "mw.set")
+
+(use mw.set)
+
+(test-module 'mw.set)
+
+(define-class <pl> (<elt>) ())
+(define (make-pl name) (make <pl> :key name))
+(define find-pl (pa$ find-instance <pl>))
+(define-class <pl-set> (<set>) ())
+(define (make-pl-set name) (find-set <pl-set> name #t))
+
+;; 要素が適切な順序で集合に追加され、
+;; 集合のサイズが一致しているかを確認。
+(test* ""
+       '(6 "scheme" "lisp" "elisp" "haskell" "sml" "ocaml")
+       (begin
+         (%with-db
+          (let ((scheme (make-pl "scheme"))
+                (lisp (make-pl "lisp"))
+                (elisp (make-pl "elisp"))
+                (haskell (make-pl "haskell"))
+                (sml (make-pl "sml"))
+                (ocaml (make-pl "ocaml"))
+                (python (make-pl "python"))
+                (perl (make-pl "perl"))
+                (ruby (make-pl "ruby"))
+                (smalltalk (make-pl "smalltalk"))
+                (c (make-pl "c"))
+                (c++ (make-pl "c++"))
+                (java (make-pl "java"))
+                (io (make-pl "io"))
+                (pascal (make-pl "pascal"))
+                (prolog (make-pl "prolog"))
+                (goedel (make-pl "goedel"))
+                (clean (make-pl "clean"))
+                ;; set
+                (functional (make-pl-set "functional"))
+                (procedural (make-pl-set "procedural"))
+                (logical    (make-pl-set "logical"))
+                (object     (make-pl-set "object"))
+                )
+            (set-adjoin! functional scheme lisp elisp haskell sml ocaml)
+            (set-adjoin! procedural perl ruby c c++ java pascal)
+            (set-adjoin! logical prolog goedel)
+            (set-adjoin! object ocaml python ruby smalltalk c++ java io)
+            (cons (size-of functional)
+                  (map key-of functional))
+            ))))
+
+;; 効率的に集合の要素を選択する関数`subseq*'の動作確認
+(test* "subseq*" '("lisp" "elisp")
+       (%with-db
+        (let ((set (find-set <pl-set> "functional")))
+          (map key-of (subseq* set 1 3)))))
+
+;; 各クラスごとの集合を含む集合に、
+;; クラスごとの集合が追加されているか？
+(test* "<class/set/set>" '(4 . #t)
+       (%with-db
+        (let ((set (find-set-all <pl-set>)))
+          (cons (size-of set)
+                (lset<= string=?
+                        (map key-of set)
+                        '("functional" "procedural" "logical" "object"))))))
+
+;; <set>の集合演算の確認
+(test* "set-intersection"
+       '("ocaml")
+       (%with-db
+        (map key-of
+             ((find-set <pl-set> "functional") '&
+              (find-set <pl-set> "object")))))
+
+(test* "map-set$" '("object" "hoge" "jojo")
+       (%with-db
+        (map key-of
+             (map-set$ <pl-set> '("object" "hoge" "jojo")))))
+
+;; 要素に集合の集合をセット
+(test* "<elt> <= <set-set>" '(#f #f)
+       (%with-db
+        (let ((js (make-pl "javascript")))
+          (slot-set! js '< (map-set$ <pl-set> '("object" "procedural")))
+          (list (not (member js ((find-set <pl-set> "object"))))
+                (not (member js ((find-set <pl-set> "procedural"))))))))
+
+;; 要素が削除されると、含まれていた集合の部分集合から削除されているか？
+(test* "delete! <elt>"
+       #f
+       (%with-db
+        (delete-instance! (find-pl "lisp"))
+        (find (lambda (elt) (string=? (key-of elt) "lisp"))
+              (find-set <pl-set> "functional"))))
+
+;; 集合Aが削除されると、
+;; 含んでいた要素の上位集合リストから集合Aを削除されているか？
+(test* "delete! <set>"
+       #f
+       (%with-db
+        (delete-instance! (find-set <pl-set> "functional"))
+        (find (lambda (set) (string=? (key-of set) "functional"))
+              (ref (find-pl "scheme") '<))))
+
+;; 集合Aの要素が削られると、
+;; 削られた要素の上位集合リストから集合Aが削除されているか？
+(test* "(<A> <= (subseq* <A> (- (size-of <A>) 2)))"
+       #f
+       (%with-db
+        (let* ((A (find-set <pl-set> "object"))
+               (last-elts (A (- (size-of A) 2))))
+          (A '<= (A 0 (- (size-of A) 2)))
+          (member A (ref (car (last-elts)) '%<)))))
+
+(db-clean)
+(test-end)

@@ -1,0 +1,23 @@
+;; -*- mode: scheme -*-
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+
+(test-start "mw.view")
+
+(use mw.view)
+
+(test-module 'mw.view)
+
+(call-with-input-string "
+(define-viewer (a name) name)
+(define-viewer (b name) (string-append name name))
+" load-viewer)
+
+(test* "view" "hoge"
+       ((get-viewer "a") "hoge"))
+
+(test* "view" "hogehoge"
+       ((get-viewer "b") "hoge"))
+
+(test-end)

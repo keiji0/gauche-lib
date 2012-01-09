@@ -1,0 +1,120 @@
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use srfi-1)
+(use srfi-13)
+
+(test-start "mw.util")
+
+(use mw.util)
+
+(test-module 'mw.util)
+
+(test* "get-error-string" "hoge"
+       (with-error-handler
+           (lambda (e)
+             (get-error-string e))
+           (lambda ()
+             (error "hoge"))))
+
+(test* "get-error-string long-message" "*** ERROR: hoge"
+       (with-error-handler
+           (lambda (e)
+             (get-error-string e #t))
+           (lambda ()
+             (error "hoge")))
+       (lambda (a b)
+         (string-prefix? a b)))
+
+(test* "check=>" '(a b c)
+       (check=> pair? '(a b c)))
+
+(test* "check=>" #f
+       (check=> pair? #f))
+
+(test* "check=>" 88
+       (check=> pair? #f 88))
+
+(test* "let$" '(1 2 3)
+       (let$ (list 1 2 3)
+             display))
+
+(test* "and*=>" #\a
+       (and*=> (any-pred string? char?) "abc"
+               (cut string-ref <> 0)))
+
+(test* "and*=>" #f
+       (and*=> string? 888))
+
+(test* "and=> 1" '20
+       (and=> (assq 'b '((a . 8) (b . 20))) cdr))
+
+(test* "and=> 2" #f
+       (and=> (assq 'k '((a . 8) (b . 20))) cdr))
+
+(test* "and=> 3" 3
+       (and=> 3))
+
+(test* "receive-alist 1" '(20 . 50)
+       (receive-alist (a c) '((a . 20) (b . 80) (c . 50))
+         (cons a c)))
+
+(test* "receive-alist 2" '(20 50)
+       (receive-alist (a c) '((a . 20) (b . 80) (c . 50))
+                      => list))
+
+(define-class <hoge> ()
+  ((a :init-keyword :a)
+   (b :init-keyword :b)
+   (c :init-keyword :c)))
+
+(test* "receive-slot 1" '(20 30 40)
+       (receive-slot (a b c) (make <hoge> :a 20 :b 30 :c 40)
+                     (list a b c)))
+
+(test* "receive-slot 2" '(20 40 . 30)
+       (receive-slot (a c b) (make <hoge> :a 20 :b 30 :c 40)
+                     => list*))
+
+(test* "slot-update!" 88
+       (ref (let$ (make <hoge> :a "jojo")
+                  (cut slot-update! <> 'a (lambda _ 88)))
+            'a))
+
+(test* "define-table (eq?)" 8
+       (begin
+         (define-table (get put!) eq?)
+           (put! 'x 8)
+           (get 'x)))
+
+(test* "define-table (string=?)" 8
+       (begin
+         (define-table (get put!) string=?)
+         (put! "x" 8)
+         (get "x")))
+
+(test* "define-table ()" 'b
+       (begin
+         (define-table (get put!))
+         (put! 'b 'b)
+         (get 'b)))
+
+(test* "define-table (get x . def)" "hoge"
+       (begin
+         (define-table (get put!))
+         (get 'b "hoge")))
+
+(test* "define-table (add delete!)" '(80 . #f)
+       (begin
+         (define-table (get put! delete!))
+         (put! 'x 80)
+         (cons (get 'x)
+               (begin (delete! 'x)
+                      (get 'x #f)))))
+
+(test* "case*" 'ok
+       (case* (list 2 3 8)
+         (((2 3 8)) 'ok)
+         (else #f)))
+
+(test-end)

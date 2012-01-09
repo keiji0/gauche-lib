@@ -1,0 +1,51 @@
+;; $Id: scheme.test, 2005-08-16T09:42:55+09:00 $
+
+(use gauche.test)
+(use www.cgi)
+(use rfc.http)
+(use mw.test.server)
+(use mw.server)
+(use mw.server.httpd)
+
+(test-start "mw.servelet.cgi")
+
+(use mw.servelet.cgi)
+
+(test-module 'mw.servelet.cgi)
+
+(define (cgi-script args)
+  (cgi-main
+    (lambda (params)
+      `(,(cgi-header) "HOGE"))))
+
+(define http-server
+  (make-http-server 8080
+    (make-cgi-servelet cgi-script)))
+
+(test* "run cgi-servelet" "HOGE"
+       (run-server-with-client (http-server)
+         (receive (s h b) (http-get "localhost:8080" "/")
+           b)))
+
+(with-output-to-file "cgitest.cgi"
+  (lambda ()
+    (print "#!/bin/sh")
+    (print "echo Content-type: text/plain")
+    (print "echo")
+    (print "echo -n $REQUEST_METHOD")))
+
+(sys-chmod "cgitest.cgi" #o755)
+
+(define http-server
+  (make-http-server 8088
+    (make-cgi-servelet "./cgitest.cgi")))
+
+(test* "run-cgi-script->string-list (using parameters)"
+       "GET"
+       (run-server-with-client (http-server)
+         (receive (s h b) (http-get "localhost:8088" "/")
+           b)))
+
+(sys-system "rm -rf cgitest.cgi")
+
+(test-end)

@@ -1,0 +1,46 @@
+;; -*- mode: scheme -*-
+;; $Id: user.test.scm,v 1.1.1.1 2005/09/14 10:33:24 keiji Exp $
+
+(use gauche.test)
+(use mw.persistent)
+(use dbm.fsdbm)
+(use file.util)
+
+(define *db-path* "object.db")
+(define (db-clean) (delete-directory* *db-path*))
+
+(define-syntax %with-db
+  (syntax-rules ()
+    ((_ body ...) (with-db (<fsdbm> *db-path*) body ...))))
+
+(test-start "mw.user")
+
+(use mw.user)
+
+(test-module 'mw.user)
+
+(define-class <user> (<user-base>) ())
+(define find-user (pa$ find-instance <user>))
+
+(test* "make-user" "hoge"
+       (%with-db
+        (ref (make-user <user> "hoge" "hogehoge") 'name)))
+
+(test* "match-user 1" "hoge"
+       (%with-db (ref (match-user <user> "hoge" "hogehoge") 'name)))
+
+(test* "match-user 2" #f
+       (%with-db (match-user <user> "hoge" "xxxxxxxx")))
+
+(test* "match-user 3" "hoge"
+       (%with-db (ref (match-user <user> "hoge") 'name)))
+
+(test* "user-password-change" '(#f "hoge")
+       (%with-db
+        (let ((user (find-user "hoge")))
+          (password-change user "HOGEHOGE")
+          (list (match-user <user> "hoge" "hogehoge")
+                (ref (match-user <user> "hoge" "HOGEHOGE") 'name)))))
+
+(db-clean)
+(test-end)

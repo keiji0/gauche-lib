@@ -1,0 +1,68 @@
+Testing db.persistent =========================================================
+testing bindings in #<module db.persistent> ... ok
+passed.
+Testing db.set ================================================================
+testing bindings in #<module db.set> ... ok
+passed.
+Testing file.index ============================================================
+testing bindings in #<module file.index> ... ok
+passed.
+Testing interp ================================================================
+testing bindings in #<module interp> ... ok
+passed.
+Testing interp.json ===========================================================
+testing bindings in #<module interp.json> ... ok
+passed.
+Testing interp.sxml ===========================================================
+testing bindings in #<module interp.sxml> ... ok
+passed.
+Testing mail ==================================================================
+testing bindings in #<module mail> ... ok
+passed.
+Testing makefile ==============================================================
+testing bindings in #<module makefile> ... ok
+passed.
+Testing sexp.comment ==========================================================
+testing bindings in #<module sexp.comment> ... ok
+test read-sexp-comment, expects test ==> ok
+passed.
+Testing test.inline ===========================================================
+testing bindings in #<module test.inline> ... ok
+passed.
+Testing text.template =========================================================
+testing bindings in #<module text.template> ... ok
+passed.
+Testing time ==================================================================
+testing bindings in #<module time> ... ok
+passed.
+Testing time.w3cdtf ===========================================================
+testing bindings in #<module time.w3cdtf> ... ok
+test w3cdtf->time, expects #t ==> ok
+test time->w3cdtf <> w3cdtf->time, expects "2005-08-21T17:38:30Z" ==> ok
+test time->w3cdtf <local> w3cdtf->time, expects "2005-08-21T17:38:30+09:00" ==> ok
+passed.
+Testing util ==================================================================
+testing bindings in #<module util> ... ok
+test get-error-string, expects "hoge" ==> ok
+test get-error-string long-message, expects "*** ERROR: hoge" ==> ok
+test check=>, expects (a b c) ==> ok
+test check=>, expects #f ==> ok
+test check=>, expects 88 ==> ok
+test let$, expects (1 2 3) ==> (1 2 3)ok
+test and*=>, expects #\a ==> ok
+test and*=>, expects #f ==> ok
+test and=> 1, expects 20 ==> ok
+test and=> 2, expects #f ==> ok
+test and=> 3, expects 3 ==> ok
+test receive-alist 1, expects (20 . 50) ==> ok
+test receive-alist 2, expects (20 50) ==> ok
+test receive-slot 1, expects (20 30 40) ==> ok
+test receive-slot 2, expects (20 40 . 30) ==> ok
+test slot-update!, expects 88 ==> ok
+test define-table (eq?), expects 8 ==> ok
+test define-table (string=?), expects 8 ==> ok
+test define-table (), expects b ==> ok
+test define-table (get x . def), expects "hoge" ==> ok
+test define-table (add delete!), expects (80 . #f) ==> ok
+test case*, expects ok ==> ok
+passed.
